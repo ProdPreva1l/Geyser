@@ -26,7 +26,12 @@
 package org.geysermc.geyser.network;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.handler.codec.haproxy.HAProxyCommand;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import lombok.Getter;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -35,6 +40,7 @@ import org.cloudburstmc.protocol.bedrock.BedrockServerSession;
 import org.cloudburstmc.protocol.bedrock.netty.codec.packet.BedrockPacketCodec;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitializer;
 import org.geysermc.geyser.GeyserImpl;
+import org.geysermc.geyser.network.netty.proxy.UDPProxyProtocolHandler;
 import org.geysermc.geyser.session.GeyserSession;
 
 import java.net.InetSocketAddress;
@@ -50,12 +56,49 @@ public class GeyserServerInitializer extends BedrockServerInitializer {
     }
 
     @Override
+    protected void preInitChannel(@NonNull Channel channel) throws Exception {
+        boolean isProxyProtocol = this.geyser.getConfig().getBedrock().isEnableProxyProtocol();
+        if (isProxyProtocol) {
+            //channel.pipeline().addFirst("proxy-protocol-decoder", new ProxyServerHandler());
+            channel.pipeline().addFirst("proxy-protocol-handler", new UDPProxyProtocolHandler());
+//            channel.pipeline().addAfter("proxy-protocol-decoder", "proxy-protocol-handler", new ChannelInboundHandlerAdapter() {
+//                @Override
+//                public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+//                    if (msg instanceof HAProxyMessage message) {
+//                        geyser.getLogger().info("HA PROXY MESSAGE");
+//                        if (message.command() == HAProxyCommand.PROXY) {
+//                            final String realAddress = message.sourceAddress();
+//                            final int realPort = message.sourcePort();
+//
+//                            final String proxyAddress = message.destinationAddress();
+//                            final int proxyPort = message.destinationPort();
+//
+//                            InetSocketAddress realSocketAddress = new InetSocketAddress(realAddress, realPort);
+//                            InetSocketAddress proxySocketAddress = new InetSocketAddress(proxyAddress, proxyPort);
+//
+//                            geyser.getLogger().info("Real: " + realAddress);
+//                            geyser.getLogger().info("Proxy: " + proxyAddress);
+//
+//                            GeyserBedrockPeer peer = (GeyserBedrockPeer) ctx.pipeline().get(BedrockPeer.NAME);
+//                            peer.setRealAddress(realSocketAddress);
+//                            peer.setProxyAddress(proxySocketAddress);
+//                        }
+//                    } else {
+//                        super.channelRead(ctx, msg);
+//                    }
+//                }
+//            });
+        }
+        super.preInitChannel(channel);
+    }
+
+    @Override
     public void initSession(@NonNull BedrockServerSession bedrockServerSession) {
         try {
-            if (this.geyser.getGeyserServer().getProxiedAddresses() != null) {
+            if (false && this.geyser.getGeyserServer().getProxiedAddresses() != null) {
                 InetSocketAddress address = this.geyser.getGeyserServer().getProxiedAddresses().get((InetSocketAddress) bedrockServerSession.getSocketAddress());
                 if (address != null) {
-                    ((GeyserBedrockPeer) bedrockServerSession.getPeer()).setProxiedAddress(address);
+                    ((GeyserBedrockPeer) bedrockServerSession.getPeer()).setRealAddress(address);
                 }
             }
 

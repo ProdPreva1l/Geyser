@@ -32,18 +32,28 @@ import org.cloudburstmc.protocol.bedrock.BedrockSessionFactory;
 import java.net.SocketAddress;
 
 public class GeyserBedrockPeer extends BedrockPeer {
-    private SocketAddress proxiedAddress;
+    private SocketAddress realAddress;
+    private SocketAddress proxyAddress;
 
     public GeyserBedrockPeer(Channel channel, BedrockSessionFactory sessionFactory) {
         super(channel, sessionFactory);
     }
 
     public SocketAddress getRealAddress() {
-        SocketAddress proxied = this.proxiedAddress;
-        return proxied == null ? this.getSocketAddress() : proxied;
+        SocketAddress real = this.realAddress;
+        return real == null ? this.getSocketAddress() : real;
     }
 
-    public void setProxiedAddress(SocketAddress proxiedAddress) {
-        this.proxiedAddress = proxiedAddress;
+    public void setRealAddress(SocketAddress realAddress) {
+        this.realAddress = realAddress;
+    }
+
+    public SocketAddress getProxyAddress() {
+        SocketAddress proxy = this.proxyAddress;
+        return proxy == null ? this.getSocketAddress() : proxy;
+    }
+
+    public void setProxyAddress(SocketAddress proxyAddress) {
+        this.proxyAddress = proxyAddress;
     }
 }

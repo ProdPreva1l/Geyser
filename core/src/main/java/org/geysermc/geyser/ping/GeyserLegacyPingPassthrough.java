@@ -143,7 +143,7 @@ public class GeyserLegacyPingPassthrough implements IGeyserPingPassthrough, Runn
             // Don't reset pingInfo, as we want to keep the last known value
             this.geyser.getLogger().warning("Unable to resolve remote host! Is the remote server down or invalid?");
         } catch (IOException e) {
-            this.geyser.getLogger().error("IO error while trying to use legacy ping passthrough", e);
+            //this.geyser.getLogger().error("IO error while trying to use legacy ping passthrough", e); // spam is pmo
         }
     }
 }

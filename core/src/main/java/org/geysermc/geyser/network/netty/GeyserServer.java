@@ -28,11 +28,17 @@ package org.geysermc.geyser.network.netty;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.uring.IoUring;
+import io.netty.handler.codec.haproxy.HAProxyCommand;
+import io.netty.handler.codec.haproxy.HAProxyMessage;
+import io.netty.handler.codec.haproxy.HAProxyMessageDecoder;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.Future;
 import lombok.Getter;
@@ -42,6 +48,7 @@ import org.cloudburstmc.netty.channel.raknet.RakChannelFactory;
 import org.cloudburstmc.netty.channel.raknet.config.RakChannelOption;
 import org.cloudburstmc.netty.handler.codec.raknet.server.RakServerOfflineHandler;
 import org.cloudburstmc.netty.handler.codec.raknet.server.RakServerRateLimiter;
+import org.cloudburstmc.protocol.bedrock.BedrockPeer;
 import org.cloudburstmc.protocol.bedrock.BedrockPong;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.api.event.connection.ConnectionRequestEvent;
@@ -50,6 +57,7 @@ import org.geysermc.geyser.configuration.GeyserConfiguration;
 import org.geysermc.geyser.event.type.GeyserBedrockPingEventImpl;
 import org.geysermc.geyser.network.CIDRMatcher;
 import org.geysermc.geyser.network.GameProtocol;
+import org.geysermc.geyser.network.GeyserBedrockPeer;
 import org.geysermc.geyser.network.GeyserServerInitializer;
 import org.geysermc.geyser.network.netty.handler.RakConnectionRequestHandler;
 import org.geysermc.geyser.network.netty.handler.RakGeyserRateLimiter;
@@ -162,8 +170,34 @@ public final class GeyserServer {
 
         // Add proxy handler
         boolean isProxyProtocol = this.geyser.getConfig().getBedrock().isEnableProxyProtocol();
-        if (isProxyProtocol) {
-            channel.pipeline().addFirst("proxy-protocol-decoder", new ProxyServerHandler());
+        if (false || isProxyProtocol) {
+            //channel.pipeline().addFirst("proxy-protocol-decoder", new ProxyServerHandler());
+            channel.pipeline().addFirst("proxy-protocol-decoder", new HAProxyMessageDecoder());
+            channel.pipeline().addAfter("proxy-protocol-decoder", "proxy-protocol-handler", new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                    if (msg instanceof HAProxyMessage message) {
+                        if (message.command() == HAProxyCommand.PROXY) {
+                            final String realAddress = message.sourceAddress();
+                            final int realPort = message.sourcePort();
+
+                            final String proxyAddress = message.destinationAddress();
+                            final int proxyPort = message.destinationPort();
+
+                            InetSocketAddress realSocketAddress = new InetSocketAddress(realAddress, realPort);
+                            InetSocketAddress proxySocketAddress = new InetSocketAddress(proxyAddress, proxyPort);
+
+                            GeyserBedrockPeer peer = (GeyserBedrockPeer) ctx.pipeline().get(BedrockPeer.NAME);
+                            peer.setRealAddress(realSocketAddress);
+                            peer.setProxyAddress(proxySocketAddress);
+
+                            // GeyserImpl.getInstance().getGeyserServer().getProxiedAddresses().put(proxySocketAddress, realSocketAddress); old gayser stuff
+                        }
+                    } else {
+                        super.channelRead(ctx, msg);
+                    }
+                }
+            });
         }
 
         boolean isWhitelistedProxyProtocol = isProxyProtocol && !this.geyser.getConfig().getBedrock().getProxyProtocolWhitelistedIPs().isEmpty();

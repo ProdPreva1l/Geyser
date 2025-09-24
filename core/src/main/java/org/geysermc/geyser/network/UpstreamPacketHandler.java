@@ -270,7 +270,9 @@ public class UpstreamPacketHandler extends LoggingPacketHandler {
                     // We must spawn the white world
                     session.connect();
                 }
-                geyser.getLogger().info(GeyserLocale.getLocaleStringLog("geyser.network.connect", session.getAuthData().name()));
+                GeyserBedrockPeer peer = (GeyserBedrockPeer) session.getUpstream().getSession().getPeer();
+                geyser.getLogger().info("Player %s connected with real IP of: %s and proxy IP of: %s"
+                    .formatted(session.getAuthData().name(), peer.getRealAddress(), peer.getProxyAddress()));
             }
             case SEND_PACKS -> {
                 if (packet.getPackIds().isEmpty()) {
